@@ -5,6 +5,7 @@ from fileWorker import FileWorker
 from exceptions import LessonError
 from commandWorker import CommandWorker
 from tkinter import filedialog
+import tkinter as tk
 
 class InterfaceApp:
     def __init__(self, root, repo):
@@ -53,6 +54,12 @@ class InterfaceApp:
         btn_cmd = ttk.Button(button_frame, text="Выполнить команды", command=self.run_commands, width=20)
         btn_cmd.pack(side="left", padx=5)
 
+        error_frame = ttk.LabelFrame(self.root, text="Ошибки")
+        error_frame.pack(padx=10, pady=5, fill="x")
+
+        self.error_box = tk.Text(error_frame, height=5, state="disabled")
+        self.error_box.pack(fill="x", padx=5, pady=5)
+
     def refresh_table(self):
         for row in self.table.get_children():
             self.table.delete(row)
@@ -68,7 +75,7 @@ class InterfaceApp:
             self.repo.data_save(self.items)
             self.refresh_table()
         except LessonError as e:
-            print(f"Ошибка при добавлении записи: {e}")
+            self.show_error(f"Ошибка при добавлении записи: {e}")
 
     def delete_item(self):
         selected = self.table.selection()
@@ -89,11 +96,26 @@ class InterfaceApp:
 
         if not file_path:
             return
+        try:
+            worker = CommandWorker(self.items)
+            worker.execute_file(file_path)
 
-        worker = CommandWorker(self.items)
-        worker.execute_file(file_path)
+            self.items = worker.items
+            self.repo.data_save(self.items)
 
-        self.items = worker.items
-        self.repo.data_save(self.items)
+            self.refresh_table()
 
-        self.refresh_table()
+        except Exception as e:
+            self.show_error(f"Ошибка при выполнении команд: {e}")
+
+    def log_error(self, message):
+        with open("error_log.txt", "a", encoding="utf-8") as f:
+            f.write(message + "\n")
+
+    def show_error(self, message):
+        self.error_box.config(state="normal")        
+        self.error_box.insert("end", message + "\n") 
+        self.error_box.see("end")                    
+        self.error_box.config(state="disabled")
+
+        self.log_error(message)
